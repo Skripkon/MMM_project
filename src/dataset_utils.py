@@ -1,7 +1,6 @@
-import os
 from pathlib import Path
+import os
 
-import numpy as np
 import pandas as pd
 import rasterio
 import torch
@@ -82,4 +81,5 @@ def read_environmental_values(split_folder: str = 'PA-train') -> pd.DataFrame:
 
 
 def get_environmental_values_tensor(survey_id: str, env_data: pd.DataFrame) -> torch.tensor:
-    return torch.tensor(env_data.query("surveyId == @survey_id").values).squeeze()
+    return torch.tensor(env_data.query("surveyId == @survey_id").values)
+
