@@ -53,10 +53,9 @@ def collate_fn(dataset_items: list[dict]):
     for item in dataset_items]).to(torch.float32)
 
     # replace none with zeros
-    batch["satellite"] = batch["satellite"].nan_to_num(0.0) # FIXME: better handling of missing data
-    batch["bioclimatic"] = batch["bioclimatic"].nan_to_num(0.0) # FIXME: better handling of missing data
-    batch["landsat"] = batch["landsat"].nan_to_num(0.0) # FIXME: better handling of missing data
-    batch["table_data"] = batch["table_data"].nan_to_num(0.0) # FIXME: better handling of missing data
+    for name in ["satellite", "bioclimatic", "landsat", "table_data"]:
+        batch[name] = batch[name].nan_to_num(0.0) # FIXME: better handling of missing data
+        batch[name][(batch[name] == float('-inf')) | (batch[name] == float('inf'))] = 0.0 # FIXME: better handling of missing data
 
     batch["target"] = torch.stack([item["target"] for item in dataset_items])
 
