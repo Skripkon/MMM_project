@@ -1,5 +1,5 @@
 defaults:
-  - model: baseline
+  - model: clip_lstm
   - writer: wandb
   - metrics: stable
   - datasets: geoplant
