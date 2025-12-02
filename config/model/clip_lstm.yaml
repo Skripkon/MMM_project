@@ -1,1 +1,1 @@
-_target_: src.models.baseline.CLIPLSTMModel
+_target_: src.models.clip_lstm_model.CLIPLSTMModel
