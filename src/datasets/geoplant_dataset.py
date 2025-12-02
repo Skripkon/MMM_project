@@ -13,14 +13,19 @@ from src.datasets.base_dataset import BaseDataset
 
 class GeoPlantDataset(BaseDataset):
     def __init__(self,
-                 split: Literal["train", "test"],
+                 local_path: Optional[str] = None,
+                 split: Literal["train", "test"] = "train",
                  limit: Optional[int] = None,
                  instance_transforms=None):
         self.split = split
 
         self.instance_transforms = instance_transforms
         
-        self.index_path = Path(kagglehub.competition_download('geoplant-at-paiss'))
+        if local_path is not None:
+            self.index_path = Path(local_path)
+        else:
+            self.index_path = Path(kagglehub.competition_download('geoplant-at-paiss'))
+
         self.satellite_path = self.index_path / Path("SatelitePatches") / Path(f"PA-{split}")
         self.bioclimatic_path = self.index_path / Path("BioclimTimeSeries/cubes") / Path(f"PA-{split}")
         self.landsat_path = self.index_path / Path("SateliteTimeSeries-Landsat/cubes") / Path(f"PA-{split}")
