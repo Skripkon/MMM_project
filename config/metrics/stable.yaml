@@ -1,0 +1,14 @@
+train:
+  - _target_: src.metrics.MultiLabelF1Score
+    average: "macro"
+    name: "F1"
+inference:
+  - _target_: src.metrics.MultiLabelAccuracy
+    average: "macro"
+    name: "Accuracy"
+  - _target_: src.metrics.MultiLabelF1Score
+    average: "macro"
+    name: "F1"
+  - _target_: src.metrics.MultiLabelJaccardSimilarity
+    average: "macro"
+    name: "Jaccard"

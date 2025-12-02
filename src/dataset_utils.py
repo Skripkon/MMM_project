@@ -14,6 +14,8 @@ environmental_features_paths = [
     "SoilGrids"
 ]
 
+BASE_PATH = Path("data") / Path("geoplant-at-paiss")
+
 
 def get_satellite_path(survey_id: str, split_folder: str = 'PA-train') -> str:
     survey_str = str(survey_id)
@@ -24,45 +26,57 @@ def get_satellite_path(survey_id: str, split_folder: str = 'PA-train') -> str:
     elif len(survey_str) >= 3:
         third_fourth_from_end = survey_str[-3:-2]
 
-    path: str = f"data/SatelitePatches/{split_folder}/{last_2}/{third_fourth_from_end}/{survey_id}.tiff"
-    assert os.path.exists(path), f"File does not exist: {path}"
+    path: str = BASE_PATH / Path(f"SatelitePatches/{split_folder}/{last_2}/{third_fourth_from_end}/{survey_id}.tiff")
+    # assert os.path.exists(path), f"File does not exist: {path}"
+    if not os.path.exists(path):
+        return None
     return path
 
 
 def read_satellite_image(survey_id: str, split_folder: str = 'PA-train') -> torch.tensor:
     path = get_satellite_path(survey_id, split_folder)
+    if path is None:
+        return None
     with rasterio.open(path) as src:
         image = src.read()
     return torch.tensor(image)
 
 
 def get_bioclimatic_time_series_cube_path(survey_id: str, split_folder: str = 'PA-train') -> str:
-    path = f"data/BioclimTimeSeries/cubes/{split_folder}/GLC25-PA-train-bioclimatic_monthly_{survey_id}_cube.pt"
-    assert os.path.exists(path), f"File does not exist: {path}"
+    path = BASE_PATH / Path(f"BioclimTimeSeries/cubes/{split_folder}/GLC25-PA-train-bioclimatic_monthly_{survey_id}_cube.pt")
+    # assert os.path.exists(path), f"File does not exist: {path}"
+    if not os.path.exists(path):
+        return None
     return path
 
 
 def get_bioclimatic_time_series_cube(survey_id: str, split_folder: str = 'PA-train') -> torch.tensor:
     path = get_bioclimatic_time_series_cube_path(survey_id, split_folder)
+    if path is None:
+        return None
     with open(path, 'rb') as f:
         data = torch.load(f)
     return data
 
 def get_satellite_time_series_landsat_cube_path(survey_id: str, split_folder: str = 'PA-train') -> str:
-    path = f"data/SateliteTimeSeries-Landsat/cubes/{split_folder}/GLC25-PA-train-landsat-time-series_{survey_id}_cube.pt"
-    assert os.path.exists(path), f"File does not exist: {path}"
+    path = BASE_PATH / Path(f"SateliteTimeSeries-Landsat/cubes/{split_folder}/GLC25-PA-train-landsat-time-series_{survey_id}_cube.pt")
+    # assert os.path.exists(path), f"File does not exist: {path}"
+    if not os.path.exists(path):
+        return None
     return path
 
 
 def get_satellite_time_series_landsat_cube(survey_id: str, split_folder: str = 'PA-train') -> torch.tensor:
     path = get_satellite_time_series_landsat_cube_path(survey_id, split_folder)
+    if path is None:
+        return None
     with open(path, 'rb') as f:
         data = torch.load(f)
     return data
 
 
 def read_environmental_values(split_folder: str = 'PA-train') -> pd.DataFrame:
-    base_dir = Path("data") / Path("EnvironmentalValues")
+    base_dir = BASE_PATH / Path("EnvironmentalValues")
     dataframes = []
     for feature in environmental_features_paths:
         feature_dir = base_dir / Path(feature)

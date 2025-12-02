@@ -1,0 +1,10 @@
+train:
+  _target_: src.datasets.GeoPlantDataset
+  split: "train"
+  instance_transforms: ${transforms.instance_transforms.train}
+  limit: 90000
+val:
+  _target_: src.datasets.GeoPlantDataset
+  split: "train"
+  instance_transforms: ${transforms.instance_transforms.inference}
+  limit: 1000

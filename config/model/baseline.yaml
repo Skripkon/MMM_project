@@ -1,0 +1,2 @@
+_target_: src.models.baseline.BaselineModel
+n_feats: 5
