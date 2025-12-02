@@ -52,6 +52,9 @@ def collate_fn(dataset_items: list[dict]):
         else torch.zeros((5,)) # FIXME: better handling of missing data
     for item in dataset_items]).to(torch.float32)
 
+    # replace none with zeros
+    batch["table_data"] = batch["table_data"].nan_to_num(0.0) # FIXME: better handling of missing data
+
     batch["target"] = torch.stack([item["target"] for item in dataset_items])
 
     batch["survey_id"] = [item["survey_id"] for item in dataset_items]
