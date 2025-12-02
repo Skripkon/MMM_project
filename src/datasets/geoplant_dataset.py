@@ -113,7 +113,7 @@ class GeoPlantDataset(BaseDataset):
         return self.load_tiff_image(path)
     
     def load_bioclimatic_cube(self, survey_id: str):
-        path = self.bioclimatic_path / Path(f"GLC25-PA-{self.split}-landsat-bioclimatic_monthly_{survey_id}_cube.pt")
+        path = self.bioclimatic_path / Path(f"GLC25-PA-{self.split}-bioclimatic_monthly_{survey_id}_cube.pt")
         # assert os.path.exists(path), f"File does not exist: {path}"
         if not os.path.exists(path):
             return None
