@@ -91,9 +91,9 @@ class CLIPLSTMModel(nn.Module):
         self.lstm2 = nn.LSTM(input_size=1, hidden_size=lstm_hidden, num_layers=2, batch_first=True)
         self.lstm2_fc = nn.Linear(lstm_hidden, hidden_dim)
 
-        # MLP: environmental values (B, 65) -> (512,)
+        # MLP: environmental values (B, 5) -> (512,)
         self.mlp_env = Sequential(
-            nn.Linear(65, 256),
+            nn.Linear(5, 256),
             nn.ReLU(),
             nn.Linear(256, hidden_dim),
         )
@@ -117,7 +117,7 @@ class CLIPLSTMModel(nn.Module):
             satellite (Tensor): satellite data. (B, 4, 64, 64)
             bioclimatic (Tensor): bioclimatic data. (B, 4, 19, 12)
             landsat (Tensor): landsat data. (B, 6, 4, 21)
-            table_data (Tensor): tabular data. (B, 65)
+            table_data (Tensor): tabular data. (B, 5)
             **batch: other batch data.
         Returns:
             output (dict): output dict containing logits.
