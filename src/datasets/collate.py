@@ -37,22 +37,25 @@ def collate_fn(dataset_items: list[dict]):
 
     batch["satellite"] = torch.stack([
         item["satellite"] if item["satellite"] is not None
-        else torch.zeros((4, 64, 64)) # FIXME: better handling of missing data
+        else torch.full((4, 64, 64), float('nan'))
     for item in dataset_items]).to(torch.float32) / 255.0
     batch["bioclimatic"] = torch.stack([
         item["bioclimatic"] if item["bioclimatic"] is not None
-        else torch.zeros((4, 19, 12)) # FIXME: better handling of missing data
+        else torch.full((4, 19, 12), float('nan'))
     for item in dataset_items]).to(torch.float32)
     batch["landsat"] = torch.stack([
         item["landsat"] if item["landsat"] is not None
-        else torch.zeros((6, 4, 21)) # FIXME: better handling of missing data
+        else torch.full((6, 4, 21), float('nan'))
     for item in dataset_items]).to(torch.float32)
     batch["table_data"] = torch.stack([
         item["table_data"] if item["table_data"] is not None
-        else torch.zeros((5,)) # FIXME: better handling of missing data
+        else torch.full((5,), float('nan'))
     for item in dataset_items]).to(torch.float32)
 
     # replace none with zeros
+    batch["satellite"] = batch["satellite"].nan_to_num(0.0) # FIXME: better handling of missing data
+    batch["bioclimatic"] = batch["bioclimatic"].nan_to_num(0.0) # FIXME: better handling of missing data
+    batch["landsat"] = batch["landsat"].nan_to_num(0.0) # FIXME: better handling of missing data
     batch["table_data"] = batch["table_data"].nan_to_num(0.0) # FIXME: better handling of missing data
 
     batch["target"] = torch.stack([item["target"] for item in dataset_items])
