@@ -39,6 +39,4 @@ class DualPath(nn.Module):
         out_feature, _ = self.rnn_feature(x_feature)  # (B*T, C, F)
         out_feature = out_feature.view(B, T, C, F).permute(0, 2, 3, 1)  # (B, C, F, T)
 
-        # Aggregate over feature and time dimensions
-        out_agg = out_feature.mean(dim=[2, 3])  # (B, C)
-        return out_agg
+        return out_feature

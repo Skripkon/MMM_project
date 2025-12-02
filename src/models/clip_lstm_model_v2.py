@@ -71,10 +71,10 @@ class CLIPLSTMModelV2(nn.Module):
         v1 = self.clip_fc(self.clip_cnn(satellite))  # (B, 512)
 
         # LSTM 1: bioclimatic time series -> v2 (B, 512)
-        v2 = self.lstm1_fc(self.lstm1(bioclimatic))  # (B, 512)
+        v2 = self.lstm1_fc(self.lstm1(bioclimatic).reshape(B, -1))  # (B, 512)
 
         # LSTM 2: landsat time series -> v3 (B, 512)
-        v3 = self.lstm2_fc(self.lstm2(landsat))  # (B, 512)
+        v3 = self.lstm2_fc(self.lstm2(landsat).reshape(B, -1))  # (B, 512)
 
         # MLP: environmental values -> v4 (B, 512)
         v4 = self.mlp_env(table_data)  # (B, 512)
