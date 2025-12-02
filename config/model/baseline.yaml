@@ -1,2 +1,3 @@
-_target_: src.models.baseline.BaselineModel
+_target_: src.models.mlp_baseline.MLPBaselineModel
 n_feats: 5
+fc_hidden: 512

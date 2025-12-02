@@ -2,7 +2,7 @@ from torch import nn
 from torch.nn import Sequential
 
 
-class BaselineModel(nn.Module):
+class MLPBaselineModel(nn.Module):
     """
     Simple MLP
     """
