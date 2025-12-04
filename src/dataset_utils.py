@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 
 import pandas as pd
+import numpy as np
 import rasterio
 import torch
 
@@ -29,15 +30,15 @@ def get_satellite_path(survey_id: str, split_folder: str = 'PA-train') -> str:
     return path
 
 
-def read_satellite_image(survey_id: str, split_folder: str = 'PA-train') -> torch.tensor:
+def read_satellite_image(survey_id: str, split_folder: str = 'PA-train') -> np.ndarray:
     path = get_satellite_path(survey_id, split_folder)
     with rasterio.open(path) as src:
         image = src.read()
-    return torch.tensor(image)
+    return image
 
 
 def get_bioclimatic_time_series_cube_path(survey_id: str, split_folder: str = 'PA-train') -> str:
-    path = f"data/BioclimTimeSeries/cubes/{split_folder}/GLC25-PA-train-bioclimatic_monthly_{survey_id}_cube.pt"
+    path = f"data/BioclimTimeSeries/cubes/{split_folder}/GLC25-{split_folder}-bioclimatic_monthly_{survey_id}_cube.pt"
     assert os.path.exists(path), f"File does not exist: {path}"
     return path
 
@@ -49,7 +50,16 @@ def get_bioclimatic_time_series_cube(survey_id: str, split_folder: str = 'PA-tra
     return data
 
 def get_satellite_time_series_landsat_cube_path(survey_id: str, split_folder: str = 'PA-train') -> str:
-    path = f"data/SateliteTimeSeries-Landsat/cubes/{split_folder}/GLC25-PA-train-landsat-time-series_{survey_id}_cube.pt"
+    if split_folder == "PA-train":
+        path = f"data/SateliteTimeSeries-Landsat/cubes/{split_folder}/GLC25-{split_folder}-landsat-time-series_{survey_id}_cube.pt"
+    else:
+        path = f"data/SateliteTimeSeries-Landsat/cubes/{split_folder}/GLC25-{split_folder}-landsat_time_series_{survey_id}_cube.pt"
+    assert os.path.exists(path), f"File does not exist: {path}"
+    return path
+
+def get_satellite_time_series_landsat_cube(survey_id: str, split_folder: str = 'PA-train') -> torch.tensor:
+    path = get_satellite_time_series_landsat_cube_path(survey_id, split_folder)
+    path = f"data/SateliteTimeSeries-Landsat/cubes/{split_folder}/GLC25-{split_folder}-landsat-time-series_{survey_id}_cube.pt"
     assert os.path.exists(path), f"File does not exist: {path}"
     return path
 
