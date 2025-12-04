@@ -57,17 +57,20 @@ def collate_fn(dataset_items: list[dict], mixup_alpha: float = 1.0, mixup_prob: 
         batch[name] = batch[name].nan_to_num(0.0) # FIXME: better handling of missing data
         batch[name][(batch[name] == float('-inf')) | (batch[name] == float('inf'))] = 0.0 # FIXME: better handling of missing data
 
-    batch["target"] = torch.stack([item["target"] for item in dataset_items])
+    if dataset_items[0]["target"]:
+        batch["target"] = torch.stack([item["target"] for item in dataset_items])
 
     batch["survey_id"] = [item["survey_id"] for item in dataset_items]
 
     # Apply mixup augmentation
     if mixup_alpha > 0.0 and torch.rand(1).item() < mixup_prob:
         lam = torch.distributions.Beta(mixup_alpha, mixup_alpha).sample().item()
-        batch_size = batch["target"].size(0)
+
+        batch_size = batch["satellite"].size(0)
         index = torch.randperm(batch_size)
 
         for key in ["satellite", "bioclimatic", "landsat", "table_data", "target"]:
-            batch[key] = lam * batch[key] + (1 - lam) * batch[key][index]
+            if key != "target" or dataset_items[0]["target"]:
+                batch[key] = lam * batch[key] + (1 - lam) * batch[key][index]
 
     return batch

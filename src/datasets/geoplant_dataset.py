@@ -43,6 +43,8 @@ def quantile_normalize(band, low=0.02, high=0.98):
 
 
 def normalize(data):
+    # Ensure data is float for mean/std calculation to avoid dtype errors
+    data = data.to(torch.float32)
     return (data - data.mean()) / (data.std() + 1e-6)
 
 
@@ -88,11 +90,16 @@ class GeoPlantDataset(BaseDataset):
 
         # Group by survey_id (place speciesId in list)
         columns = self.df.columns.tolist()
-        columns.remove("speciesId")
+
+        if split != "test":  # `speciesId` is the target column
+            columns.remove("speciesId")
+
         columns.remove("surveyId")
         
         aggregations = {col: "first" for col in columns}
-        aggregations["speciesId"] = lambda x: x.tolist()
+
+        if split != "test":
+            aggregations["speciesId"] = lambda x: x.tolist()
         
         self.df = self.df.groupby("surveyId").agg(aggregations).reset_index()
         
@@ -104,8 +111,9 @@ class GeoPlantDataset(BaseDataset):
             else:
                 data_end = mid
         df = self.df.iloc[data_start:data_end].reset_index(drop=True)
-        
-        df['speciesId'] = df['speciesId'].apply(lambda x: indexes_to_tensor(x, num_classes))
+
+        if split != "test":
+            df['speciesId'] = df['speciesId'].apply(lambda x: indexes_to_tensor(x, num_classes))
 
         # FIXME: Add environmental features
 

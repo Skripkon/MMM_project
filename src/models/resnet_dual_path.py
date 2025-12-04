@@ -6,7 +6,7 @@ from src.models.parts import ResnetBlock, DualPath
 
 class MultiModalFusionModel(nn.Module):
     """Multi-modal fusion model with cross-modal attention"""
-    def __init__(self, num_classes=11255):
+    def __init__(self, num_classes: int = 11255):
         super().__init__()
 
         BasicBlockSE = lambda in_c, out_c, stride=1: ResnetBlock(in_c, out_c, stride=stride, use_se=True)
