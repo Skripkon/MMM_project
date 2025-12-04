@@ -73,7 +73,7 @@ class RDPCA(nn.Module):
             nn.Linear(hidden_dim * 4, hidden_dim)
         )
 
-        features_dim = hidden_dim * 4 + 8  # 512*4 + 8 = 2056
+        features_dim = hidden_dim * 7 + 8  # 512*4 + 8 = 2056
 
         self.pre_attn = nn.LayerNorm(features_dim)
         self.cross_modal_attention = nn.MultiheadAttention(features_dim, num_heads=8, batch_first=True)
@@ -127,7 +127,7 @@ class RDPCA(nn.Module):
         landsat_x_sentinel = self.post_landsat_x_sentinel(landsat_x_sentinel)
 
         # Concatenate: v1, v2, v3, v4 -> (B, 512 + 512 + 512 + 512 + 8) = (B, 2056)
-        features = torch.cat([sentinel_x_bioclim, bioclim_x_sentinel, sentinel_x_landsat, landsat_x_sentinel, table_feat], dim=1)  # (B, 2048)
+        features = torch.cat([sentinel_x_bioclim, bioclim_x_sentinel, sentinel_x_landsat, landsat_x_sentinel, sentinel_feat, bioclim_feat, landsat_feat, table_feat], dim=1)  # (B, 2048)
         
         # Apply cross-modal attention
         features = self.pre_attn(features)
@@ -138,6 +138,6 @@ class RDPCA(nn.Module):
         combined_features = features.reshape(features.size(0), -1)  # (B, 2056)
         
         # Classification
-        logits = self.classifier(combined_features)
+        logits = self.final_mlp(combined_features)
         
         return { "logits": logits }
