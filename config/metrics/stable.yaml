@@ -1,7 +1,7 @@
 train:
-  - _target_: src.metrics.MultiLabelF1Score
+  - _target_: src.metrics.MultiLabelJaccardSimilarity
     average: "macro"
-    name: "F1"
+    name: "Jaccard"
 inference:
   - _target_: src.metrics.MultiLabelAccuracy
     average: "macro"
