@@ -8,3 +8,9 @@ data/*
 # Python files
 __pycache__/
 .DS_Store
+
+# Model weights
+*.pth
+
+# Submission file
+submission.csv
