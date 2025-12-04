@@ -16,6 +16,7 @@ from src.models.cool_model import MultiModalFusionModel as M2        # model_wei
 ROOT_DIR = Path(__file__).parent
 LOCAL_DATA_PATH = ROOT_DIR / Path("data")
 LOCAL_MODEL_PATH = ROOT_DIR / Path("model_weights")
+DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
 MODEL_NAME = "resnet"
 
@@ -34,17 +35,17 @@ test_dataloader = DataLoader(
 )
 
 model = M2()
-checkpoint = torch.load(os.path.join(LOCAL_MODEL_PATH, f"{MODEL_NAME}.pth"), map_location=torch.device('mps'), weights_only=False)
+checkpoint = torch.load(os.path.join(LOCAL_MODEL_PATH, f"{MODEL_NAME}.pth"), map_location=torch.device(DEVICE), weights_only=False)
 state_dict = checkpoint.get("state_dict", checkpoint)
 model.load_state_dict(state_dict, strict=False)
-model.eval().to("mps")
+model.eval().to(DEVICE)
 
 
 predictions = []
 with torch.no_grad():
     for inputs in tqdm(test_dataloader): 
         for key in ['satellite', 'bioclimatic', 'landsat']:
-            inputs[key] = inputs[key].to("mps")
+            inputs[key] = inputs[key].to(DEVICE)
         outputs = model(**inputs)["logits"]
         _, topk_indices = torch.topk(outputs, k=25, dim=-1)
         predictions.extend(topk_indices.tolist())
