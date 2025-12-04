@@ -6,7 +6,7 @@ class MLP(nn.Module):
     Simple Multi-Layer Perceptron (MLP) model.
     """
 
-    def __init__(self, input_dim, hidden_dims, output_dim, activation=nn.ReLU):
+    def __init__(self, input_dim, hidden_dims, output_dim, activation=nn.ReLU, dropout=0.3):
         """
         Args:
             input_dim (int): dimension of the input features.
@@ -19,6 +19,7 @@ class MLP(nn.Module):
         prev_dim = input_dim
         for hidden_dim in hidden_dims:
             layers.append(nn.Linear(prev_dim, hidden_dim))
+            layers.append(nn.Dropout(dropout))
             layers.append(activation())
             prev_dim = hidden_dim
         layers.append(nn.Linear(prev_dim, output_dim))
