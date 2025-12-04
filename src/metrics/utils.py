@@ -102,21 +102,21 @@ def calc_multilabel_recall(
         # Global recall: TP / (TP + FN)
         tp = (preds_binary * targets).sum()
         fn = ((1 - preds_binary) * targets).sum()
-        recall = tp / (tp + fn + 1e-8)
+        recall = tp / (tp + fn)
         return recall.item()
     
     elif average == "macro":
         # Per-label recall, then average
-        tp = (preds_binary * targets).sum(dim=0)
-        fn = ((1 - preds_binary) * targets).sum(dim=0)
-        recalls = tp / (tp + fn + 1e-8)
+        tp = (preds_binary * targets).sum(dim=-1)
+        fn = ((1 - preds_binary) * targets).sum(dim=-1)
+        recalls = tp / (tp + fn)
         return recalls.mean().item()
     
     elif average == "weighted":
         # Weighted by number of positives per label
-        tp = (preds_binary * targets).sum(dim=0)
-        fn = ((1 - preds_binary) * targets).sum(dim=0)
-        recalls = tp / (tp + fn + 1e-8)
+        tp = (preds_binary * targets).sum(dim=-1)
+        fn = ((1 - preds_binary) * targets).sum(dim=-1)
+        recalls = tp / (tp + fn)
         weights = targets.sum(dim=0) / targets.sum()
         return (recalls * weights).sum().item()
     
@@ -146,29 +146,23 @@ def calc_multilabel_f1(
         tp = (preds_binary * targets).sum()
         fp = (preds_binary * (1 - targets)).sum()
         fn = ((1 - preds_binary) * targets).sum()
-        precision = tp / (tp + fp + 1e-8)
-        recall = tp / (tp + fn + 1e-8)
-        f1 = 2 * (precision * recall) / (precision + recall + 1e-8)
-        return f1.item()
+        f1s = tp / (tp + (fp + fn) / 2)
+        return f1s.item()
     
     elif average == "macro":
         # Per-label F1, then average
-        tp = (preds_binary * targets).sum(dim=0)
-        fp = (preds_binary * (1 - targets)).sum(dim=0)
-        fn = ((1 - preds_binary) * targets).sum(dim=0)
-        precision = tp / (tp + fp + 1e-8)
-        recall = tp / (tp + fn + 1e-8)
-        f1s = 2 * (precision * recall) / (precision + recall + 1e-8)
+        tp = (preds_binary * targets).sum(dim=-1)
+        fp = (preds_binary * (1 - targets)).sum(dim=-1)
+        fn = ((1 - preds_binary) * targets).sum(dim=-1)
+        f1s = tp / (tp + (fp + fn) / 2)
         return f1s.mean().item()
     
     elif average == "weighted":
         # Weighted by number of positives per label
-        tp = (preds_binary * targets).sum(dim=0)
-        fp = (preds_binary * (1 - targets)).sum(dim=0)
-        fn = ((1 - preds_binary) * targets).sum(dim=0)
-        precision = tp / (tp + fp + 1e-8)
-        recall = tp / (tp + fn + 1e-8)
-        f1s = 2 * (precision * recall) / (precision + recall + 1e-8)
+        tp = (preds_binary * targets).sum(dim=-1)
+        fp = (preds_binary * (1 - targets)).sum(dim=-1)
+        fn = ((1 - preds_binary) * targets).sum(dim=-1)
+        f1s = tp / (tp + (fp + fn) / 2)
         weights = targets.sum(dim=0) / targets.sum()
         return (f1s * weights).sum().item()
     
