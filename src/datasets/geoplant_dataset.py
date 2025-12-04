@@ -10,14 +10,56 @@ import kagglehub
 
 from src.datasets.base_dataset import BaseDataset
 
+import torch
+
+
+def torch_interp(x, xp, fp):
+    x = x.to(dtype=xp.dtype)
+    inds = torch.searchsorted(xp, x)
+    inds = torch.clamp(inds, 1, len(xp) - 1)
+    x0, x1 = xp[inds - 1], xp[inds]
+    y0, y1 = fp[inds - 1], fp[inds]
+    slope = (y1 - y0) / (x1 - x0)
+    return y0 + slope * (x - x0)
+
+
+def quantile_normalize(band, low=0.02, high=0.98):
+    if band is None:
+        return band
+
+    band = band.flatten()
+
+    sorted_band = torch.sort(band).values
+    quantiles = torch.quantile(sorted_band, torch.linspace(low, high, len(sorted_band)))
+    normalized_band = torch_interp(band, sorted_band, quantiles).reshape(band.shape)
+
+    min_val, max_val = torch.min(normalized_band), torch.max(normalized_band)
+
+    # Prevent division by zero if min_val == max_val
+    if max_val == min_val:
+        return torch.zeros_like(normalized_band, dtype=torch.float32)  # Return an array of zeros
+    # Perform normalization (min-max scaling)
+    return ((normalized_band - min_val) / (max_val - min_val)).to(torch.float32)
+
+
+def normalize(data):
+    return (data - data.mean()) / (data.std() + 1e-6)
+
 
 class GeoPlantDataset(BaseDataset):
     def __init__(self,
                  local_path: Optional[str] = None,
-                 split: Literal["train", "test"] = "train",
+                 split: Literal["train", "test", "val"] = "train",
+                 section: Literal["P0", "PA"] = "PA",
                  limit: Optional[int] = None,
                  instance_transforms=None):
+        is_val = False
+        if split == "val":
+            is_val = True
+            split = "train"
+        
         self.split = split
+        self.section = section
 
         self.instance_transforms = instance_transforms
         
@@ -26,30 +68,44 @@ class GeoPlantDataset(BaseDataset):
         else:
             self.index_path = Path(kagglehub.competition_download('geoplant-at-paiss'))
 
-        self.satellite_path = self.index_path / Path("SatelitePatches") / Path(f"PA-{split}")
-        self.bioclimatic_path = self.index_path / Path("BioclimTimeSeries/cubes") / Path(f"PA-{split}")
-        self.landsat_path = self.index_path / Path("SateliteTimeSeries-Landsat/cubes") / Path(f"PA-{split}")
+        self.satellite_path, self.bioclimatic_path, self.landsat_path = None, None, None
+        if section == "PA":
+            self.satellite_path = self.index_path / Path("SatelitePatches") / Path(f"PA-{split}")
+            self.bioclimatic_path = self.index_path / Path("BioclimTimeSeries/cubes") / Path(f"PA-{split}")
+            self.landsat_path = self.index_path / Path("SateliteTimeSeries-Landsat/cubes") / Path(f"PA-{split}")
+
         self.environmental_path = self.index_path / Path("EnvironmentalVariables")
 
-        def indexes_to_tensor(indexes_list, max_index):
+        def indexes_to_tensor(indexes_list, num_classes):
             indexes_list = [int(idx)-1 for idx in indexes_list]
-            tensor = torch.zeros(max_index, dtype=torch.float32)
+            tensor = torch.zeros(num_classes, dtype=torch.float32)
             tensor[indexes_list] = 1.0
             return tensor
 
-        df = pd.read_csv(self.index_path / Path(f"GLC25_PA_metadata_{split}.csv"))
-        # Group by survey_id (place speciesId in list)
-        max_species_id = int(df['speciesId'].max().item())
+        self.df = pd.read_csv(self.index_path / Path(f"GLC25_{section}_metadata_{split}.csv"))
+        
+        num_classes = 11255
 
-        columns = df.columns.tolist()
+        # Group by survey_id (place speciesId in list)
+        columns = self.df.columns.tolist()
         columns.remove("speciesId")
         columns.remove("surveyId")
         
         aggregations = {col: "first" for col in columns}
         aggregations["speciesId"] = lambda x: x.tolist()
         
-        df = df.groupby("surveyId").agg(aggregations).reset_index()
-        df['speciesId'] = df['speciesId'].apply(lambda x: indexes_to_tensor(x, max_species_id))
+        self.df = self.df.groupby("surveyId").agg(aggregations).reset_index()
+        
+        data_start, data_end = 0, len(self.df)
+        if split == "train":
+            mid = int(data_end * 0.99)
+            if is_val:
+                data_start = mid
+            else:
+                data_end = mid
+        df = self.df.iloc[data_start:data_end].reset_index(drop=True)
+        
+        df['speciesId'] = df['speciesId'].apply(lambda x: indexes_to_tensor(x, num_classes))
 
         # FIXME: Add environmental features
 
@@ -73,12 +129,19 @@ class GeoPlantDataset(BaseDataset):
         """
         data_dict = self.index[ind]
         survey_id = data_dict["surveyId"]
-        target = data_dict["speciesId"]
-        
+
+        target = None
+        if "speciesId" in data_dict:
+            target = data_dict["speciesId"]
+    
         satellite = self.load_satellite_patch(survey_id)
         bioclimatic = self.load_bioclimatic_cube(survey_id)
         landsat = self.load_landsat_cube(survey_id)
-
+        
+        satellite = normalize(satellite) if satellite is not None else None
+        bioclimatic = normalize(bioclimatic) if bioclimatic is not None else None
+        landsat = normalize(landsat) if landsat is not None else None
+        
         instance_data = {
             "satellite": satellite,  # shape: (4, 64, 64) or None
             "bioclimatic": bioclimatic,  # shape: (4, 19, 12) or None
@@ -105,6 +168,9 @@ class GeoPlantDataset(BaseDataset):
     def load_satellite_patch(self, survey_id: str):
         survey_str = str(survey_id)
         
+        if self.satellite_path is None:
+            return None
+        
         path: str = self.satellite_path / Path(f"{survey_str[-2:]}/{survey_str[-4:-2]}/{survey_id}.tiff")
         # assert os.path.exists(path), f"File does not exist: {path}"
         if not os.path.exists(path): # FIXME: handle missing files
@@ -113,6 +179,9 @@ class GeoPlantDataset(BaseDataset):
         return self.load_tiff_image(path)
     
     def load_bioclimatic_cube(self, survey_id: str):
+        if self.satellite_path is None:
+            return None
+        
         path = self.bioclimatic_path / Path(f"GLC25-PA-{self.split}-bioclimatic_monthly_{survey_id}_cube.pt")
         # assert os.path.exists(path), f"File does not exist: {path}"
         if not os.path.exists(path):
@@ -120,6 +189,9 @@ class GeoPlantDataset(BaseDataset):
         return self.load_tensor(path)
     
     def load_landsat_cube(self, survey_id: str):
+        if self.satellite_path is None:
+            return None
+        
         path = self.landsat_path / Path(f"GLC25-PA-{self.split}-landsat-time-series_{survey_id}_cube.pt")
         # assert os.path.exists(path), f"File does not exist: {path}"
         if not os.path.exists(path):
