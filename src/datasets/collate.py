@@ -1,7 +1,7 @@
 import torch
 
 
-def collate_fn(dataset_items: list[dict]):
+def collate_fn(dataset_items: list[dict], mixup_alpha: float = 1.0, mixup_prob: float = 0.5) -> dict[str, torch.Tensor]:
     """
     Collate and pad fields in the dataset items.
     Converts individual items into a batch.
@@ -60,5 +60,14 @@ def collate_fn(dataset_items: list[dict]):
     batch["target"] = torch.stack([item["target"] for item in dataset_items])
 
     batch["survey_id"] = [item["survey_id"] for item in dataset_items]
+
+    # Apply mixup augmentation
+    if mixup_alpha > 0.0 and torch.rand(1).item() < mixup_prob:
+        lam = torch.distributions.Beta(mixup_alpha, mixup_alpha).sample().item()
+        batch_size = batch["target"].size(0)
+        index = torch.randperm(batch_size)
+
+        for key in ["satellite", "bioclimatic", "landsat", "table_data", "target"]:
+            batch[key] = lam * batch[key] + (1 - lam) * batch[key][index]
 
     return batch
