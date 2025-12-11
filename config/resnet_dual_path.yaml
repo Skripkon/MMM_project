@@ -1,5 +1,5 @@
 defaults:
-  - model: clip_lstm
+  - model: resnet_dual_path
   - writer: wandb
   - metrics: stable
   - datasets: geoplant
@@ -34,7 +34,7 @@ trainer:
   epoch_len: 500
   max_grad_norm: 1.0
   accum_steps: 1
-  device_tensors: ["satellite", "bioclimatic", "landsat", "table_data", "target"]
+  device_tensors: ["satellite", "bioclimatic", "landsat", "table_data", "climate_features", "elevation_features", "human_footprint_features", "land_cover_features", "soil_grids_features", "target"]
   resume_from: null
   device: auto
   override: True

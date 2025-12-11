@@ -49,6 +49,9 @@ Configurations are in the `config/` directory. Specify a different config:
 python3 train.py --config-name=resnet
 ```
 
+> [!NOTE]
+> Currenct configurations are tased on `A100` GPUs with `80GB` memory. Expected training time is around `1 hour`. This configuration gives solid score of `0.15223`
+
 ## Inference
 
 Run inference on test data (hardcode a model in the file):
