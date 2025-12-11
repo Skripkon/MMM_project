@@ -18,6 +18,7 @@ class DualPath(nn.Module):
                                 num_layers=num_layers, batch_first=True)
         self.rnn_feature = rnn_type(input_size=feature_size, hidden_size=feature_size,
                                    num_layers=num_layers, batch_first=True)
+        self.multi_domain_attn = nn.MultiheadAttention(embed_dim=feature_size, num_heads=4, batch_first=True)
 
     def forward(self, x):
         """
@@ -26,7 +27,7 @@ class DualPath(nn.Module):
         Args:
             x (Tensor): input tensor of shape (B, C, F, T).
         Returns:
-            output (Tensor): output tensor of shape (B, C).
+            output (Tensor): output tensor of shape (B, C, F, T).
         """
         B, C, F, T = x.size()
         # Process along time dimension
@@ -38,5 +39,10 @@ class DualPath(nn.Module):
         x_feature = out_time.permute(0, 3, 1, 2).contiguous().view(B * T, C, F)  # (B*T, C, F)
         out_feature, _ = self.rnn_feature(x_feature)  # (B*T, C, F)
         out_feature = out_feature.view(B, T, C, F).permute(0, 2, 3, 1)  # (B, C, F, T)
+
+        # Apply multi-domain attention
+        out_feature = out_feature.view(B, C, F * T).permute(0, 2, 1)  # (B, F*T, C)
+        out_feature, _ = self.multi_domain_attn(out_feature, out_feature, out_feature)  # (B, F*T, C)
+        out_feature = out_feature.permute(0, 2, 1).view(B, C, F, T)  # (B, C, F, T)
 
         return out_feature

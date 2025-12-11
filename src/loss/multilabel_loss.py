@@ -74,21 +74,26 @@ class AsymmetricLossWrapper(Module):
         Returns:
             Dictionary with 'loss' key containing the loss value
         """
-        p = torch.sigmoid(logits)
-        p = torch.clamp(p, min=self.eps, max=1 - self.eps)
-        
-        p_pos = p[target == 1]
-        loss_pos = -torch.pow(1 - p_pos, self.gamma_pos) * torch.log(p_pos + self.eps)
-        
-        p_neg = p[target == 0]
-        loss_neg = -torch.pow(p_neg, self.gamma_neg) * torch.log(1 - p_neg + self.eps)
-        
-        if self.clip > 0:
-            loss_pos = torch.clamp(loss_pos, max=self.clip)
-        
-        loss = (loss_pos.sum() + loss_neg.sum()) / (target.shape[0] * target.shape[1])
-        
-        return {"loss": loss}
+
+        x_sigmoid = torch.sigmoid(logits)
+        xs_pos = x_sigmoid
+        xs_neg = 1 - x_sigmoid
+
+        if self.clip is not None and self.clip > 0:
+            xs_neg = (xs_neg + self.clip).clamp(max=1)
+
+        los_pos = target * torch.log(xs_pos.clamp(min=self.eps))
+        los_neg = (1 - target) * torch.log(xs_neg.clamp(min=self.eps))
+        loss = los_pos + los_neg
+
+        pt0 = xs_pos * target
+        pt1 = xs_neg * (1 - target)
+        pt = pt0 + pt1
+        one_sided_gamma = self.gamma_pos * target + self.gamma_neg * (1 - target)
+        one_sided_w = torch.pow(1 - pt, one_sided_gamma)
+        loss *= one_sided_w
+
+        return {"loss": -loss.sum(dim=1).mean()}
 
 
 class FocalLossWrapper(Module):
@@ -126,24 +131,11 @@ class FocalLossWrapper(Module):
         Returns:
             Dictionary with 'loss' key containing the loss value
         """
-        p = torch.sigmoid(logits)
-        target = target.float()
-        
-        p_t = torch.where(target == 1, p, 1 - p)
-        focal_weight = torch.pow(1 - p_t, self.gamma)
-        
-        bce = torch.nn.functional.binary_cross_entropy_with_logits(
-            logits, target.float(), reduction='none'
-        )
-        
-        loss = self.alpha * focal_weight * bce
-        
-        if self.reduction == "mean":
-            loss = loss.mean()
-        elif self.reduction == "sum":
-            loss = loss.sum()
-        
-        return {"loss": loss}
+
+        bce_loss = torch.nn.functional.binary_cross_entropy_with_logits(logits, target, reduction='none')
+        pt = torch.exp(-bce_loss)
+        focal_loss = self.alpha * (1-pt)**self.gamma * bce_loss
+        return {"loss": focal_loss.mean()}
 
 
 class SoftMarginLossWrapper(SoftMarginLoss):

@@ -146,9 +146,9 @@ class GeoPlantDataset(BaseDataset):
         bioclimatic = self.load_bioclimatic_cube(survey_id)
         landsat = self.load_landsat_cube(survey_id)
         
-        satellite = normalize(satellite) if satellite is not None else None
-        bioclimatic = normalize(bioclimatic) if bioclimatic is not None else None
-        landsat = normalize(landsat) if landsat is not None else None
+        satellite = normalize(satellite.to(torch.float32)) if satellite is not None else None
+        bioclimatic = normalize(bioclimatic.to(torch.float32)) if bioclimatic is not None else None
+        landsat = normalize(landsat.to(torch.float32)) if landsat is not None else None
         
         instance_data = {
             "satellite": satellite,  # shape: (4, 64, 64) or None

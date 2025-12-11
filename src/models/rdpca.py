@@ -4,6 +4,39 @@ from torch import nn
 from src.models.parts import ResnetBlock, DualPath, MLP
 
 
+class TransformerBlock(nn.Module):
+    """
+    Transformer block with multi-head self-attention and feed-forward network.
+    """
+    def __init__(self, dim, num_heads=8, mlp_ratio=4.0, dropout=0.1):
+        super().__init__()
+        self.norm1 = nn.LayerNorm(dim)
+        self.attn = nn.MultiheadAttention(dim, num_heads=num_heads, dropout=dropout, batch_first=True)
+        self.norm2 = nn.LayerNorm(dim)
+        
+        hidden_dim = int(dim * mlp_ratio)
+        self.mlp = nn.Sequential(
+            nn.Linear(dim, hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, dim),
+            nn.Dropout(dropout)
+        )
+
+    def forward(self, x):
+        # Multi-head self-attention
+        attn_output, _ = self.attn(x, x, x)
+        x = x + attn_output
+        x = self.norm1(x)
+
+        # Feed-forward network
+        mlp_output = self.mlp(x)
+        x = x + mlp_output
+        x = self.norm2(x)
+
+        return x
+
+
 class RDPCA(nn.Module):
     """
     Resnet x Dual-Path Cross-Modal Attention model for multi-modal data fusion.
@@ -27,20 +60,17 @@ class RDPCA(nn.Module):
         # LSTM 1: bioclimatic time series (B, 4, 19, 12) -> (512,)
         # Flatten to (B, 4*19*12) = (B, 912)
         self.lstm1 = DualPath(feature_size=19, time_size=12, num_layers=2)
-        self.lstm1_fc = nn.Linear(912, hidden_dim)
+        # self.lstm1_fc = nn.Linear(912, hidden_dim)
 
         # LSTM 2: landsat time series (B, 6, 4, 21) -> (512,)
         # Flatten to (B, 6*4*21) = (B, 504)
         self.lstm2 = DualPath(feature_size=4, time_size=21, num_layers=2)
-        self.lstm2_fc = nn.Linear(504, hidden_dim)
-
-        # MLP: environmental values (B, 5) -> (512,)
-        self.mlp_env = MLP(input_dim=5, hidden_dims=[16], output_dim=8, dropout=0.3)
+        # self.lstm2_fc = nn.Linear(504, hidden_dim)
 
         # Cross-attention modules
-        self.sentinel_norm = nn.LayerNorm(hidden_dim)
-        self.bioclim_norm = nn.LayerNorm(hidden_dim)
-        self.landsat_norm = nn.LayerNorm(hidden_dim)
+        self.sentinel_norm = nn.LayerNorm((8, 8, 8))
+        self.bioclim_norm = nn.LayerNorm((76, 12))
+        self.landsat_norm = nn.LayerNorm((126, 4))
 
         self.cross_attn_sentinel_x_bioclim = nn.MultiheadAttention(hidden_dim, num_heads=8, batch_first=True)
         self.cross_attn_bioclim_x_sentinel = nn.MultiheadAttention(hidden_dim, num_heads=8, batch_first=True)
@@ -73,7 +103,24 @@ class RDPCA(nn.Module):
             nn.Linear(hidden_dim * 4, hidden_dim)
         )
 
-        features_dim = hidden_dim * 7 + 8  # 512*4 + 8 = 2056
+        self.sentinel_x_bioclim_transformer_tower = nn.Sequential(
+            TransformerBlock(hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1),
+            TransformerBlock(hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1)
+        )
+        self.bioclim_x_sentinel_transformer_tower = nn.Sequential(
+            TransformerBlock(hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1),
+            TransformerBlock(hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1)
+        )
+        self.sentinel_x_landsat_transformer_tower = nn.Sequential(
+            TransformerBlock(hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1),
+            TransformerBlock(hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1)
+        )
+        self.landsat_x_sentinel_transformer_tower = nn.Sequential(
+            TransformerBlock(hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1),
+            TransformerBlock(hidden_dim, num_heads=8, mlp_ratio=4.0, dropout=0.1)
+        )
+
+        features_dim = hidden_dim * 4 + 8  # 512*4 + 8 = 2056
 
         self.pre_attn = nn.LayerNorm(features_dim)
         self.cross_modal_attention = nn.MultiheadAttention(features_dim, num_heads=8, batch_first=True)
@@ -103,18 +150,17 @@ class RDPCA(nn.Module):
         B = satellite.size(0)
 
         # Encode each modality
-        sentinel_feat = self.sentinel_encoder(satellite).reshape(B, -1)  # (B, 512)
-        bioclim_feat = self.lstm1_fc(self.lstm1(bioclimatic).reshape(B, -1))  # (B, 512)
-        landsat_feat = self.lstm2_fc(self.lstm2(landsat).reshape(B, -1))  # (B, 512)
-        table_feat = self.mlp_env(table_data)  # (B, 512)
+        sentinel_feat = self.sentinel_encoder(satellite)  # (B, 512)
+        bioclim_feat = self.lstm1(bioclimatic).reshape(B, -1, 12)  # (B, 76, 12)
+        landsat_feat = self.lstm2(landsat).reshape(B, 4, -1).transpose(1, 2)  # (B, 126, 4)
 
         sentinel_feat = self.sentinel_norm(sentinel_feat)
         bioclim_feat = self.bioclim_norm(bioclim_feat)
         landsat_feat = self.landsat_norm(landsat_feat)
         
         # Cross-attention: sentinel x bioclim
-        sentinel_x_bioclim, _ = self.cross_attn_sentinel_x_bioclim(sentinel_feat, bioclim_feat, bioclim_feat)  # Q=sentinel, K=bioclim, V=bioclim -> (B, 512)
-        bioclim_x_sentinel, _ = self.cross_attn_bioclim_x_sentinel(bioclim_feat, sentinel_feat, sentinel_feat)  # Q=bioclim, K=sentinel, V=sentinel -> (B, 512)
+        sentinel_x_bioclim, _ = self.cross_attn_sentinel_x_bioclim(sentinel_feat, bioclim_feat, bioclim_feat)  # Q=sentinel, K=bioclim, V=bioclim -> (B, 
+        bioclim_x_sentinel, _ = self.cross_attn_bioclim_x_sentinel(bioclim_feat, sentinel_feat, sentinel_feat)  # Q=bioclim, K=sentinel, V=sentinel -> (B, 
 
         sentinel_x_bioclim = self.post_sentinel_x_bioclim(sentinel_x_bioclim)
         bioclim_x_sentinel = self.post_bioclim_x_sentinel(bioclim_x_sentinel)
@@ -126,8 +172,14 @@ class RDPCA(nn.Module):
         sentinel_x_landsat = self.post_sentinel_x_landsat(sentinel_x_landsat)
         landsat_x_sentinel = self.post_landsat_x_sentinel(landsat_x_sentinel)
 
+        # Apply transformer towers
+        sentinel_x_bioclim = self.sentinel_x_bioclim_transformer_tower(sentinel_x_bioclim.unsqueeze(1)).squeeze(1)  # (B, 512)
+        bioclim_x_sentinel = self.bioclim_x_sentinel_transformer_tower(bioclim_x_sentinel.unsqueeze(1)).squeeze(1)  # (B, 512)
+        sentinel_x_landsat = self.sentinel_x_landsat_transformer_tower(sentinel_x_landsat.unsqueeze(1)).squeeze(1)  # (B, 512)
+        landsat_x_sentinel = self.landsat_x_sentinel_transformer_tower(landsat_x_sentinel.unsqueeze(1)).squeeze(1)  # (B, 512)
+
         # Concatenate: v1, v2, v3, v4 -> (B, 512 + 512 + 512 + 512 + 8) = (B, 2056)
-        features = torch.cat([sentinel_x_bioclim, bioclim_x_sentinel, sentinel_x_landsat, landsat_x_sentinel, sentinel_feat, bioclim_feat, landsat_feat, table_feat], dim=1)  # (B, 2048)
+        features = torch.cat([sentinel_x_bioclim, bioclim_x_sentinel, sentinel_x_landsat, landsat_x_sentinel], dim=1)  # (B, 2048)
         
         # Apply cross-modal attention
         features = self.pre_attn(features)
@@ -138,6 +190,6 @@ class RDPCA(nn.Module):
         combined_features = features.reshape(features.size(0), -1)  # (B, 2056)
         
         # Classification
-        logits = self.final_mlp(combined_features)
+        logits = self.classifier(combined_features)
         
         return { "logits": logits }
