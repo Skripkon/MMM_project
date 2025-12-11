@@ -1,9 +1,9 @@
 from functools import partial
 import os
-from typing import Any
 from pathlib import Path
 
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
@@ -49,6 +49,12 @@ with torch.no_grad():
         outputs = model(**inputs)["logits"]
         _, topk_indices = torch.topk(outputs, k=25, dim=-1)
         predictions.extend(topk_indices.tolist())
+
+lengths = [len(pred) for pred in predictions]
+print("Median:", np.median(lengths))
+print("Mean:", np.mean(lengths))
+print("Max:", np.max(lengths))
+print("Min:", np.min(lengths))
 
 
 submission = pd.DataFrame({
