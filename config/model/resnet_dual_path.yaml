@@ -1,1 +1,1 @@
-_target_: src.models.cube_baseline.ResNetDualPathModel
+_target_: src.models.resnet_dual_path.MultiModalFusionModel

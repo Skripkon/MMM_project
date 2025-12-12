@@ -55,7 +55,7 @@ class CLIPLSTMModel(nn.Module):
     - Final MLP: (2048,) -> (num_classes,)
     """
 
-    def __init__(self, num_classes, hidden_dim=512, lstm_hidden=256):
+    def __init__(self, num_classes, hidden_dim=512, lstm_hidden=256, use_for_training_adaptive_k: bool = False):
         """
         Args:
             num_classes (int): number of output classes.
@@ -103,11 +103,19 @@ class CLIPLSTMModel(nn.Module):
         self.cross_attn_lstm1_clip = CrossAttention(hidden_dim)
 
         # Final MLP: (2048,) -> (num_classes,)
-        self.final_mlp = Sequential(
-            nn.Linear(hidden_dim * 4, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, num_classes),
-        )
+        if not use_for_training_adaptive_k:
+            self.final_mlp = Sequential(
+                nn.Linear(hidden_dim * 4, 1024),
+                nn.ReLU(),
+                nn.Linear(1024, num_classes),
+            )
+        # Regression task: (2048,) -> (1,)
+        else:
+            self.final_mlp = Sequential(
+                nn.Linear(hidden_dim * 4, 1024),
+                nn.ReLU(),
+                nn.Linear(1024, 1),
+            )
 
     def forward(self, satellite, bioclimatic, landsat, table_data, **batch):
         """

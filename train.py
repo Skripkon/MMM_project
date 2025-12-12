@@ -12,7 +12,7 @@ from src.utils.init_utils import set_random_seed, select_most_suitable_gpu, setu
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
-@hydra.main(version_base=None, config_path="config", config_name="baseline")
+@hydra.main(version_base=None, config_path="config", config_name="mmm")
 def main(config):
     """
     Main script for training. Instantiates the model, optimizer, scheduler,
@@ -30,7 +30,7 @@ def main(config):
 
     device = config.trainer.device
     if device == "auto":
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     if device == "cuda":
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = False
@@ -42,8 +42,9 @@ def main(config):
     # batch_transforms should be put on device
     dataloaders, batch_transforms = get_dataloaders(config, device)
 
+
     # build model architecture, then print to console
-    model = instantiate(config.model, num_classes=config.get("num_classes", 1000))
+    model = instantiate(config.model, num_classes=config.get("num_classes", 1000), use_for_training_adaptive_k=config.get("use_for_training_adaptive_k", False))
 
     # Apply model transforms
     for transform_config in config.get("model_transforms", []):

@@ -18,6 +18,7 @@ LOCAL_DATA_PATH = ROOT_DIR / Path("data")
 LOCAL_MODEL_PATH = ROOT_DIR / Path("model_weights")
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
+# TODO: pass model path as CLI argument
 MODEL_NAME = "resnet"
 
 test_dataset = GeoPlantDataset(
@@ -34,12 +35,18 @@ test_dataloader = DataLoader(
     collate_fn=inference_collate_fn
 )
 
-model = M2()
+model = M2(num_classes=11255)
 checkpoint = torch.load(os.path.join(LOCAL_MODEL_PATH, f"{MODEL_NAME}.pth"), map_location=torch.device(DEVICE), weights_only=False)
 state_dict = checkpoint.get("state_dict", checkpoint)
 model.load_state_dict(state_dict, strict=False)
 model.eval().to(DEVICE)
 
+# TODO: pass model path as CLI argument
+adaptive_k_model = M2(use_for_training_adaptive_k=True)
+checkpoint = torch.load("/Users/23048869/Desktop/untitled folder/MMM_project/saved/mmm/testing/model_best.pth", map_location=torch.device(DEVICE), weights_only=False)
+state_dict = checkpoint.get("state_dict", checkpoint)
+adaptive_k_model.load_state_dict(state_dict, strict=False)
+adaptive_k_model.eval().to(DEVICE)
 
 predictions = []
 with torch.no_grad():
@@ -47,8 +54,19 @@ with torch.no_grad():
         for key in ['satellite', 'bioclimatic', 'landsat']:
             inputs[key] = inputs[key].to(DEVICE)
         outputs = model(**inputs)["logits"]
-        _, topk_indices = torch.topk(outputs, k=25, dim=-1)
-        predictions.extend(topk_indices.tolist())
+
+        adaptive_k_outputs = adaptive_k_model(**inputs)["logits"] # [batch_size, 1]
+        ks = adaptive_k_outputs.squeeze(-1).tolist()
+        for k, output in zip(ks, outputs):
+            _, topk_indices = torch.topk(output, k=int(k) + 8, dim=-1)  # why add +8?
+                                                                        # It boosts the performance...
+                                                                        # Apparently, train data contains samples with not that much species,
+                                                                        # whereas test data contains samples with more species.
+                                                                        # Usage of the PO data must help in resolving the issue.
+            predictions.append(topk_indices.tolist())
+    
+        # _, topk_indices = torch.topk(outputs, k=25, dim=-1)
+        # predictions.extend(topk_indices.tolist())
 
 lengths = [len(pred) for pred in predictions]
 print("Median:", np.median(lengths))
@@ -60,7 +78,7 @@ print("Min:", np.min(lengths))
 submission = pd.DataFrame({
     "surveyId": test_dataset.df.surveyId.values,
     "predictions": [
-        " ".join(str(i) for i in pred)
+        " ".join(str(i + 1) for i in pred)
         for pred in predictions
     ]
 })

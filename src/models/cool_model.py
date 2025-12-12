@@ -6,7 +6,7 @@ from src.models.parts import ResnetBlock
 
 class MultiModalFusionModel(nn.Module):
     """Multi-modal fusion model with cross-modal attention"""
-    def __init__(self, num_classes=11255):
+    def __init__(self, num_classes=11254, use_for_training_adaptive_k: bool = False):
         super().__init__()
 
         BasicBlockSE = lambda in_c, out_c, stride=1: ResnetBlock(in_c, out_c, stride=stride, use_se=True)
@@ -55,12 +55,20 @@ class MultiModalFusionModel(nn.Module):
         )
         
         # Final classifier
-        self.classifier = nn.Sequential(
-            nn.Linear(512 * 3, 1024),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(1024, num_classes)
-        )
+        if not use_for_training_adaptive_k:
+            self.classifier = nn.Sequential(
+                nn.Linear(512 * 3, 1024),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.Linear(1024, num_classes)
+            )
+        else:
+            self.classifier = nn.Sequential(
+                nn.Linear(512 * 3, 1024),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.Linear(1024, 1)
+            )
 
     def forward(self, satellite, bioclimatic, landsat, table_data, **batch):
         """
