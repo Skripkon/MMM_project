@@ -1,5 +1,5 @@
 defaults:
-  - model: clip_lstm
+  - model: resnet
   - writer: wandb
   - metrics: stable
   - datasets: geoplant
@@ -7,7 +7,8 @@ defaults:
   - transforms: stable
   - _self_
 
-num_classes: 11254
+num_classes: 11255
+use_for_training_adaptive_k: true
 model_transforms: []
 
 optimizer:
@@ -18,19 +19,19 @@ optimizer:
 
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.OneCycleLR
-  max_lr: 1e-4
+  max_lr: 1e-3
   steps_per_epoch: ${trainer.epoch_len}
   epochs: ${trainer.n_epochs}
 
 loss_function:
-  _target_: src.loss.AsymmetricLossWrapper
-  gamma_neg: 4
-  gamma_pos: 1
-  clip: 0.05
+  _target_: src.loss.HuberLossWrapper
+  # gamma_neg: 4
+  # gamma_pos: 1
+  # clip: 0.05
 
 trainer:
   log_step: 50
-  n_epochs: 60
+  n_epochs: 1
   epoch_len: 500
   max_grad_norm: 1.0
   accum_steps: 1
