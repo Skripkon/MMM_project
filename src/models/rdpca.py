@@ -41,7 +41,7 @@ class RDPCA(nn.Module):
     """
     Resnet x Dual-Path Cross-Modal Attention model for multi-modal data fusion.
     """
-    def __init__(self, num_classes=11255, hidden_dim=512):
+    def __init__(self, num_classes=11254, hidden_dim=512):
         super().__init__()
 
         BasicBlockSE = lambda in_c, out_c, stride=1: ResnetBlock(in_c, out_c, stride=stride, use_se=True)

@@ -29,7 +29,7 @@ The model uses a lot of data associated with a particular point on Earth:
 
 1. preview [Dec 11]
 
-> TODO
+See `work_done_by_dec_11.pdf`
 
 2. full [Dec 22]
 

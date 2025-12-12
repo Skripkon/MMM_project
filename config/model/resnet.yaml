@@ -1,1 +1,1 @@
-_target_: src.models.cube_baseline.CoolModel
+_target_: src.models.cool_model.MultiModalFusionModel

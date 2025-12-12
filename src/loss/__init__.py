@@ -7,6 +7,7 @@ from src.loss.multilabel_loss import (
     MarginLossWrapper,
 )
 from src.loss.mixed_loss import MixedLossWrapper
+from src.loss.adaptive_k_loss import MSELossWrapper, HuberLossWrapper
 
 __all__ = [
     "BCELossWrapper",
@@ -16,4 +17,6 @@ __all__ = [
     "MultiLabelSmoothingLossWrapper",
     "MarginLossWrapper",
     "MixedLossWrapper",
+    "MSELossWrapper",
+    "HuberLossWrapper"
 ]

@@ -54,7 +54,11 @@ class GeoPlantDataset(BaseDataset):
                  split: Literal["train", "test", "val"] = "train",
                  section: Literal["P0", "PA"] = "PA",
                  limit: Optional[int] = None,
-                 instance_transforms=None):
+                 instance_transforms=None,
+                 use_for_training_adaptive_k: bool = False):
+        
+        self.use_for_training_adaptive_k = use_for_training_adaptive_k
+
         is_val = False
         if split == "val":
             is_val = True
@@ -165,10 +169,9 @@ class GeoPlantDataset(BaseDataset):
                 # data_dict["country"], # FIXME: categorical
             ], dtype=torch.float32),
 
-            "target": target,
+            "target": target if not self.use_for_training_adaptive_k else torch.Tensor([torch.sum(target)]),
             "survey_id": survey_id,
         }
-
         instance_data = self.preprocess_data(instance_data)
 
         return instance_data
