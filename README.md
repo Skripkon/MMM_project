@@ -1,4 +1,4 @@
-# GeoPlant Species Distribution Modeling (SDM)
+<img width="1237" height="688" alt="image" src="https://github.com/user-attachments/assets/85f62004-e294-4c80-93ba-6e8323a37a4e" /># GeoPlant Species Distribution Modeling (SDM)
 
 Solution to the [GeoPlant at PAISS Kaggle competition](https://www.kaggle.com/competitions/geoplant-at-paiss).
 
@@ -74,6 +74,9 @@ With that here is the list of approaches we have tested:
 Because of our goal of making final solution step-by-step, the architecture difference isn't, so significant, but this definetly gives use direction of experiments.
 
 2. full [Dec 22]
+
+<img width="1237" height="688" alt="image" src="https://github.com/user-attachments/assets/d9bd9307-9c5e-4ac1-bb8e-c0d45c61fce6" />
+
 
 The final architecture is expected to be as described below:
 
