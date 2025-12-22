@@ -44,7 +44,7 @@ def main(config):
 
 
     # build model architecture, then print to console
-    model = instantiate(config.model, num_classes=config.get("num_classes", 1000), use_for_training_adaptive_k=config.get("use_for_training_adaptive_k", False))
+    model = instantiate(config.model, num_classes=config.get("num_classes", 1000))
 
     # Apply model transforms
     for transform_config in config.get("model_transforms", []):

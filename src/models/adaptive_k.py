@@ -25,7 +25,7 @@ class AdaptiveK(nn.Module):
         Args:
             **batch: other batch data.
         Returns:
-            output (dict): output dict containing k.
+            output (dict): output dict containing k_pred.
         """
         backbone_head = self.backbone.head  # Save original head
         self.backbone.head = nn.Identity()
@@ -35,4 +35,4 @@ class AdaptiveK(nn.Module):
         # Classification
         k = self.head(hidden).flatten()  # (B,)
         
-        return { "k": k }
+        return { "k_pred": k }
