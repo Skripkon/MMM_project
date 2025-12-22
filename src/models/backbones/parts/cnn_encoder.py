@@ -13,6 +13,9 @@ class CNNEncoder(nn.Module):
             hidden_dim (int): dimension of the hidden representation.
         """
         super().__init__()
+        self.input_channels = input_channels
+        self.hidden_dim = hidden_dim
+
         self.encoder = nn.Sequential(
             nn.Conv2d(input_channels, 64, kernel_size=3, padding=1),
             nn.ReLU(),

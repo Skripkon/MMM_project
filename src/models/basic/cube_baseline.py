@@ -1,7 +1,7 @@
 import torch.nn as nn
-import torch.nn.functional as F
 
-from src.models.parts import ResnetBlock
+from src.models.backbones.resnet import ResNet
+from src.models.backbones.parts import MLP
 
 
 class CubeBaselineModel(nn.Module):
@@ -26,42 +26,42 @@ class CubeBaselineModel(nn.Module):
         # Per-sample normalization over [C,H,W]
         self.norm_input = nn.LayerNorm(input_shape)
 
-        # Two-step stem to (i) mix spectral bands, then (ii) capture local 2D structure
         if input_type == 'landsat':
-            self.stem1 = nn.Conv2d(input_shape[0], stem_channels, kernel_size=1, stride=1, padding=0, bias=False)  # channel mixing
-            self.stem2 = nn.Conv2d(stem_channels, stem_channels, kernel_size=3, stride=1, padding=1, bias=False)
+            self.encoder = ResNet(
+                in_channels=input_shape[0],
+                hidden_dim=[stem_channels, stem_channels, stem_channels],
+                out_channels=stem_channels,
+                strides=[1, 1, 1],
+                stem_type='depthpointwise',
+            )
+            conv_out_channels = stem_channels
         elif input_type == 'bioclimatic':
-            self.stem1 = nn.Identity()
-            self.stem2 = nn.Conv2d(input_shape[0], stem_channels, kernel_size=3, stride=1, padding=1, bias=False)
-        else:  # sentinel
-            self.stem1 = nn.Identity()
-            self.stem2 = nn.Conv2d(input_shape[0], stem_channels, kernel_size=3, stride=2, padding=1, bias=False)  # 64->32
-
-        self.stem_bn = nn.BatchNorm2d(stem_channels)
-
-        # 3 residual blocks (no downsampling; preserve 4×21)
-        if input_type == 'landsat' or input_type == 'bioclimatic':
-            self.block1 = ResnetBlock(stem_channels, stem_channels)
-            self.block2 = ResnetBlock(stem_channels, stem_channels)
-            self.block3 = ResnetBlock(stem_channels, stem_channels)
-
+            self.encoder = ResNet(
+                in_channels=input_shape[0],
+                hidden_dim=[stem_channels, stem_channels, stem_channels],
+                out_channels=stem_channels,
+                strides=[1, 1, 1],
+            )
             conv_out_channels = stem_channels
         else:  # sentinel
-            self.block1 = ResnetBlock(stem_channels, stem_channels)
-            self.block2 = ResnetBlock(stem_channels, stem_channels*2, stride=2) # 32->16
-            self.block3 = ResnetBlock(stem_channels*2, stem_channels*2)
-
-            conv_out_channels = stem_channels*2
+            self.encoder = ResNet(
+                in_channels=input_shape[0],
+                hidden_dim=[stem_channels, stem_channels, stem_channels * 2],
+                out_channels=stem_channels * 2,
+                strides=[1, 2, 1],
+                stem_stride=2,
+            )
+            conv_out_channels = stem_channels * 2
 
         # Global average pooling and head
-        self.gap = nn.AdaptiveAvgPool2d(1)
         self.head = nn.Sequential(
-            nn.Flatten(),                       # [B, C, 1, 1] -> [B, C]
             nn.LayerNorm(conv_out_channels),
-            nn.Linear(conv_out_channels, mlp_hidden),
-            nn.ReLU(inplace=True),
-            nn.Dropout(p_drop),
-            nn.Linear(mlp_hidden, num_classes)  # logits
+            MLP(
+                conv_out_channels,
+                [mlp_hidden],
+                num_classes,
+                dropout=p_drop
+            )
         )
 
         self._init_weights()
@@ -94,16 +94,7 @@ class CubeBaselineModel(nn.Module):
             'sentinel': satellite
         }[self.input_type]
 
-        x = self.norm_input(x)
-        x = self.stem1(x)                  # [B, C=stem_channels, 4, 21]
-        x = self.stem2(x)
-        x = self.stem_bn(x)
-        x = F.relu(x, inplace=True)
-
-        x = self.block1(x)                 # 3 blocks × 2 conv = 6 conv layers
-        x = self.block2(x)
-        x = self.block3(x)
-
-        x = self.gap(x)                    # [B, C, 1, 1]
-        x = self.head(x)                   # [B, num_classes] (logits)
+        x = self.norm_input(x)  # [B, C, H, W]
+        x = self.encoder(x)     # [B, conv_out_channels]
+        x = self.head(x)        # [B, num_classes] (logits)
         return x

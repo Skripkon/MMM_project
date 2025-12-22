@@ -132,7 +132,7 @@ class RDPCA(nn.Module):
         )
 
         # Final MLP: (2048,) -> (num_classes,)
-        self.final_mlp = MLP(input_dim=features_dim, hidden_dims=[1024], output_dim=num_classes, dropout=0.3)
+        self.head = MLP(input_dim=features_dim, hidden_dims=[1024], output_dim=num_classes, dropout=0.3)
 
     def forward(self, satellite, bioclimatic, landsat, table_data, **batch):
         """
@@ -190,6 +190,6 @@ class RDPCA(nn.Module):
         combined_features = features.reshape(features.size(0), -1)  # (B, 2056)
         
         # Classification
-        logits = self.classifier(combined_features)
+        logits = self.head(combined_features)
         
         return { "logits": logits }

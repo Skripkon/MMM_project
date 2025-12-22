@@ -1,5 +1,6 @@
 from torch import nn
-from torch.nn import Sequential
+
+from backbones.parts.mlp import MLP
 
 
 class MLPBaselineModel(nn.Module):
@@ -16,13 +17,7 @@ class MLPBaselineModel(nn.Module):
         """
         super().__init__()
 
-        self.net = Sequential(
-            nn.Linear(in_features=n_feats, out_features=fc_hidden),
-            nn.ReLU(),
-            nn.Linear(in_features=fc_hidden, out_features=fc_hidden),
-            nn.ReLU(),
-            nn.Linear(in_features=fc_hidden, out_features=num_classes),
-        )
+        self.net = MLP(n_feats, [fc_hidden], num_classes)
 
     def forward(self, satellite, bioclimatic, landsat, table_data, **batch):
         """

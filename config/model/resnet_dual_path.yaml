@@ -1,1 +1,1 @@
-_target_: src.models.resnet_dual_path.MultiModalFusionModel
+_target_: src.models.MultiModalFusionModel

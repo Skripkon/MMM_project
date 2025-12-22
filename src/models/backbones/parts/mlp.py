@@ -15,6 +15,12 @@ class MLP(nn.Module):
             activation (nn.Module): activation function to use.
         """
         super().__init__()
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.hidden_dims = hidden_dims
+        self.dropout = dropout
+
         layers = []
         prev_dim = input_dim
         for hidden_dim in hidden_dims:

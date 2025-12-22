@@ -2,6 +2,8 @@ import torch
 from torch import nn
 from torch.nn import Sequential
 
+from src.models.backbones.parts import MLP
+
 
 class CrossAttention(nn.Module):
     """
@@ -55,7 +57,7 @@ class CLIPLSTMModel(nn.Module):
     - Final MLP: (2048,) -> (num_classes,)
     """
 
-    def __init__(self, num_classes, hidden_dim=512, lstm_hidden=256, use_for_training_adaptive_k: bool = False):
+    def __init__(self, num_classes, hidden_dim=512, lstm_hidden=256):
         """
         Args:
             num_classes (int): number of output classes.
@@ -103,19 +105,11 @@ class CLIPLSTMModel(nn.Module):
         self.cross_attn_lstm1_clip = CrossAttention(hidden_dim)
 
         # Final MLP: (2048,) -> (num_classes,)
-        if not use_for_training_adaptive_k:
-            self.final_mlp = Sequential(
-                nn.Linear(hidden_dim * 4, 1024),
-                nn.ReLU(),
-                nn.Linear(1024, num_classes),
-            )
-        # Regression task: (2048,) -> (1,)
-        else:
-            self.final_mlp = Sequential(
-                nn.Linear(hidden_dim * 4, 1024),
-                nn.ReLU(),
-                nn.Linear(1024, 1),
-            )
+        self.head = MLP(
+            input_dim=hidden_dim * 4,
+            hidden_dims=[1024],
+            output_dim=num_classes
+        )
 
     def forward(self, satellite, bioclimatic, landsat, table_data, **batch):
         """
@@ -162,6 +156,6 @@ class CLIPLSTMModel(nn.Module):
         concatenated = torch.cat([attn_v1, attn_v2, v3, v4], dim=1)  # (B, 2048)
 
         # Final MLP: (2048,) -> (n_classes,)
-        logits = self.final_mlp(concatenated)  # (B, n_classes)
+        logits = self.head(concatenated)  # (B, n_classes)
 
         return {"logits": logits}

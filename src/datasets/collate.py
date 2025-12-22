@@ -31,31 +31,36 @@ def collate_fn(dataset_items: list[dict], mixup_alpha: float = 1.0, mixup_prob: 
     #         # data_dict["country"], # FIXME: categorical
     #     ], dtype=torch.float32),
 
+    #     "climate_features": data_dict.get("climate_features", None),  # shape: (19,) or None
+    #     "elevation_features": data_dict.get("elevation_features", None),  # shape: (1,) or None
+    #     "human_footprint_features": data_dict.get("human_footprint_features", None),  # shape: (22,) or None
+    #     "land_cover_features": data_dict.get("land_cover_features", None),  # shape: (13,) or None
+    #     "soil_grids_features": data_dict.get("soil_grids_features", None),  # shape: (9,) or None
+
     #     "target": target,
     #     "survey_id": survey_id,
     # }
 
-    batch["satellite"] = torch.stack([
-        item["satellite"] if item["satellite"] is not None
-        else torch.full((4, 64, 64), float('nan'))
-    for item in dataset_items]).to(torch.float32) / 255.0
-    batch["bioclimatic"] = torch.stack([
-        item["bioclimatic"] if item["bioclimatic"] is not None
-        else torch.full((4, 19, 12), float('nan'))
-    for item in dataset_items]).to(torch.float32)
-    batch["landsat"] = torch.stack([
-        item["landsat"] if item["landsat"] is not None
-        else torch.full((6, 4, 21), float('nan'))
-    for item in dataset_items]).to(torch.float32)
-    batch["table_data"] = torch.stack([
-        item["table_data"] if item["table_data"] is not None
-        else torch.full((5,), float('nan'))
-    for item in dataset_items]).to(torch.float32)
+    for name, shape in [
+        ("satellite", (4, 64, 64)),
+        ("bioclimatic", (4, 19, 12)),
+        ("landsat", (6, 4, 21)),
+        ("table_data", (5,)),
+        ("climate_features", (19,)),
+        ("elevation_features", (1,)),
+        ("human_footprint_features", (22,)),
+        ("land_cover_features", (13,)),
+        ("soil_grids_features", (9,)),
+    ]:
+        batch[name] = torch.stack([
+            item[name] if item[name] is not None
+            else torch.full(shape, float('nan'))
+        for item in dataset_items]).to(torch.float32)
 
-    # replace none with zeros
-    for name in ["satellite", "bioclimatic", "landsat", "table_data"]:
         batch[name] = batch[name].nan_to_num(0.0) # FIXME: better handling of missing data
         batch[name][(batch[name] == float('-inf')) | (batch[name] == float('inf'))] = 0.0 # FIXME: better handling of missing data
+
+    batch["satellite"] = batch["satellite"] / 255.0
 
     if dataset_items[0]["target"] is not None:
         batch["target"] = torch.stack([item["target"] for item in dataset_items])

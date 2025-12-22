@@ -1,4 +1,4 @@
-_target_: src.models.cube_baseline.CubeBaselineModel
+_target_: src.models.CubeBaselineModel
 input_type: 'landsat' # 'landsat' | 'sentinel' | 'bioclimatic'
 stem_channels: 64
 mlp_hidden: 512

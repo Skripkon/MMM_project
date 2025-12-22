@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.nn import MultiheadAttention
 
-from src.models.parts import MLP, CNNEncoder, DualPath
+from src.models.backbones.parts import MLP, CNNEncoder, DualPath
 
 
 class CLIPLSTMModelV2(nn.Module):
@@ -50,7 +50,7 @@ class CLIPLSTMModelV2(nn.Module):
         self.cross_attn_lstm1_clip = MultiheadAttention(hidden_dim, num_heads=8, batch_first=True)
 
         # Final MLP: (2048,) -> (num_classes,)
-        self.final_mlp = MLP(input_dim=hidden_dim * 4, hidden_dims=[1024], output_dim=num_classes)
+        self.head = MLP(input_dim=hidden_dim * 4, hidden_dims=[1024], output_dim=num_classes)
 
     def forward(self, satellite, bioclimatic, landsat, table_data, **batch):
         """
@@ -91,6 +91,6 @@ class CLIPLSTMModelV2(nn.Module):
         concatenated = torch.cat([attn_v1, attn_v2, v3, v4], dim=1)  # (B, 2048)
 
         # Final MLP: (2048,) -> (n_classes,)
-        logits = self.final_mlp(concatenated)  # (B, n_classes)
+        logits = self.head(concatenated)  # (B, n_classes)
 
         return {"logits": logits}
