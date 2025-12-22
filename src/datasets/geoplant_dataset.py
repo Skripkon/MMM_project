@@ -44,25 +44,24 @@ def quantile_normalize(band, low=0.02, high=0.98):
 
 def normalize(data):
     # Ensure data is float for mean/std calculation to avoid dtype errors
-    data = data.to(torch.float32)
+    # data = data.to(torch.float32)
     return (data - data.mean()) / (data.std() + 1e-6)
 
 
 class GeoPlantDataset(BaseDataset):
-    def __init__(self,
-                 local_path: Optional[str] = None,
-                 split: Literal["train", "test", "val"] = "train",
-                 section: Literal["P0", "PA"] = "PA",
-                 limit: Optional[int] = None,
-                 load_satellite: bool = True,
-                 load_bioclimatic: bool = True,
-                 load_landsat: bool = True,
-                 load_environmental: bool = True,
-                 instance_transforms=None,
-                 use_for_training_adaptive_k: bool = False):
+    def __init__(
+            self,
+            local_path: Optional[str] = None,
+            split: Literal["train", "test", "val"] = "train",
+            section: Literal["P0", "PA"] = "PA",
+            limit: Optional[int] = None,
+            load_satellite: bool = True,
+            load_bioclimatic: bool = True,
+            load_landsat: bool = True,
+            load_environmental: bool = True,
+            instance_transforms=None
+        ):
         
-        self.use_for_training_adaptive_k = use_for_training_adaptive_k
-
         is_val = False
         if split == "val":
             is_val = True
@@ -71,6 +70,11 @@ class GeoPlantDataset(BaseDataset):
         self.split = split
         self.section = section
 
+        self.load_satellite = load_satellite
+        self.load_bioclimatic = load_bioclimatic
+        self.load_landsat = load_landsat
+        self.load_environmental = load_environmental
+    
         self.instance_transforms = instance_transforms
         
         if local_path is not None:
@@ -78,14 +82,13 @@ class GeoPlantDataset(BaseDataset):
         else:
             self.index_path = Path(kagglehub.competition_download('geoplant-at-paiss'))
 
-        self.satellite_path, self.bioclimatic_path, self.landsat_path = None, None, None, None
+        self.satellite_path, self.bioclimatic_path, self.landsat_path = None, None, None
         if section == "PA":
-            if load_satellite:
-                self.satellite_path = self.index_path / Path("SatelitePatches") / Path(f"PA-{split}")
-            if load_bioclimatic:
-                self.bioclimatic_path = self.index_path / Path("BioclimTimeSeries/cubes") / Path(f"PA-{split}")
-            if load_landsat:
-                self.landsat_path = self.index_path / Path("SateliteTimeSeries-Landsat/cubes") / Path(f"PA-{split}")
+            self.satellite_path = self.index_path / Path("SatelitePatches") / Path(f"PA-{split}")
+            self.bioclimatic_path = self.index_path / Path("BioclimTimeSeries/cubes") / Path(f"PA-{split}")
+            self.landsat_path = self.index_path / Path("SateliteTimeSeries-Landsat/cubes") / Path(f"PA-{split}")
+
+        self.environmental_path = self.index_path / Path("EnvironmentalVariables")
 
         def indexes_to_tensor(indexes_list, num_classes):
             indexes_list = [int(idx)-1 for idx in indexes_list]
@@ -127,58 +130,33 @@ class GeoPlantDataset(BaseDataset):
         self.environmental_path = self.index_path / Path("EnvironmentalVariables")
         self.climate_average, self.elevation, self.human_footprint, self.land_cover, self.soil_grids = None, None, None, None, None
         if load_environmental:
-            self.climate_average = pd.read_csv(self.environmental_path / Path("ClimateAverage_1981-2010") / Path(f"GLC25-{section}-{split}-bioclimatic.csv"))
-            self.elevation = pd.read_csv(self.environmental_path / Path("Elevation") / Path(f"GLC25-{section}-{split}-elevation.csv"))
-            self.human_footprint = pd.read_csv(self.environmental_path / Path("HumanFootprint") / Path(f"GLC25-{section}-{split}-human_footprint.csv"))
-            self.land_cover = pd.read_csv(self.environmental_path / Path("LandCover") / Path(f"GLC25-{section}-{split}-landcover.csv"))
-            self.soil_grids = pd.read_csv(self.environmental_path / Path("SoilGrids") / Path(f"GLC25-{section}-{split}-soilgrids.csv")).dropna()
+            feature_path_map = {
+                "climate": Path("ClimateAverage_1981-2010") / Path(f"GLC25-{section}-{split}-bioclimatic.csv"),
+                "elevation": Path("Elevation") / Path(f"GLC25-{section}-{split}-elevation.csv"),
+                "human_footprint": Path("HumanFootprint") / Path(f"GLC25-{section}-{split}-human_footprint.csv"),
+                "land_cover": Path("LandCover") / Path(f"GLC25-{section}-{split}-landcover.csv"),
+                "soil_grids": Path("SoilGrids") / Path(f"GLC25-{section}-{split}-soilgrids.csv")
+            }
+            for feature in ["climate", "elevation", "human_footprint", "land_cover", "soil_grids"]:
+                features = pd.read_csv(self.environmental_path / feature_path_map[feature]).dropna()
 
-            # Normalize environmental columns
-            for col in self.climate_average.columns:
-                if col != "surveyId":
-                    self.climate_average[col] = (self.climate_average[col] - self.climate_average[col].mean()) / (self.climate_average[col].std() + 1e-6)
-            for col in self.elevation.columns:
-                if col != "surveyId":
-                    self.elevation[col] = (self.elevation[col] - self.elevation[col].mean()) / (self.elevation[col].std() + 1e-6)
-            for col in self.human_footprint.columns:
-                if col != "surveyId":
-                    self.human_footprint[col] = (self.human_footprint[col] - self.human_footprint[col].mean()) / (self.human_footprint[col].std() + 1e-6)
-            for col in self.land_cover.columns:
-                if col != "surveyId":
-                    self.land_cover[col] = (self.land_cover[col] - self.land_cover[col].mean()) / (self.land_cover[col].std() + 1e-6)
-            for col in self.soil_grids.columns:
-                if col != "surveyId":
-                    self.soil_grids[col] = (self.soil_grids[col] - self.soil_grids[col].mean()) / (self.soil_grids[col].std() + 1e-6)
+                # Normalize environmental columns
+                for col in features.columns:
+                    if col != "surveyId":
+                        features[col] = normalize(features[col])
 
-            # make a tensors form columns except surveyId
-            self.climate_average["climate_features"] = self.climate_average.apply(
-                lambda row: torch.tensor(row.drop("surveyId").values, dtype=torch.float32), axis=1)
-            self.elevation["elevation_features"] = self.elevation.apply(
-                lambda row: torch.tensor(row.drop("surveyId").values, dtype=torch.float32), axis=1)
-            self.human_footprint["human_footprint_features"] = self.human_footprint.apply(
-                lambda row: torch.tensor(row.drop("surveyId").values, dtype=torch.float32), axis=1)
-            self.land_cover["land_cover_features"] = self.land_cover.apply(
-                lambda row: torch.tensor(row.drop("surveyId").values, dtype=torch.float32), axis=1)
-            self.soil_grids["soil_grids_features"] = self.soil_grids.apply(
-                lambda row: torch.tensor(row.drop("surveyId").values, dtype=torch.float32), axis=1)
+                # make a tensors form columns except surveyId
+                features[f"{feature}_features"] = features.apply(
+                    lambda row: torch.tensor(row.drop("surveyId").values, dtype=torch.float32), axis=1)
 
-            # join environmental features to main df
-            df = df.merge(self.climate_average[["surveyId", "climate_features"]], on="surveyId", how="left")
-            df = df.merge(self.elevation[["surveyId", "elevation_features"]], on="surveyId", how="left")
-            df = df.merge(self.human_footprint[["surveyId", "human_footprint_features"]], on="surveyId", how="left")
-            df = df.merge(self.land_cover[["surveyId", "land_cover_features"]], on="surveyId", how="left")
-            df = df.merge(self.soil_grids[["surveyId", "soil_grids_features"]], on="surveyId", how="left")
-
-        # FIXME: Add environmental features
+                # join environmental features to main df
+                df = df.merge(features[["surveyId", f"{feature}_features"]], on="surveyId", how="left")
 
         df["lon"] = df["lon"] * 111700 * (1 - df["lat"] / 90)
         df["lat"] = df["lat"] * 111700
 
-        df["lon"] = (df["lon"] - df["lon"].mean()) / (df["lon"].std() + 1e-6)
-        df["lat"] = (df["lat"] - df["lat"].mean()) / (df["lat"].std() + 1e-6)
-        df["year"] = (df["year"] - df["year"].mean()) / (df["year"].std() + 1e-6)
-        df["geoUncertaintyInM"] = (df["geoUncertaintyInM"] - df["geoUncertaintyInM"].mean()) / (df["geoUncertaintyInM"].std() + 1e-6)
-        df["areaInM2"] = (df["areaInM2"] - df["areaInM2"].mean()) / (df["areaInM2"].std() + 1e-6)
+        for feature in ["lon", "lat", "year", "geoUncertaintyInM", "areaInM2"]:
+            df[feature] = normalize(df[feature])
 
         self.index = df.to_dict(orient='records')
         self.limit = limit if limit is not None else len(self.index)
@@ -234,9 +212,11 @@ class GeoPlantDataset(BaseDataset):
             "land_cover_features": data_dict.get("land_cover_features", None),  # shape: (13,) or None
             "soil_grids_features": data_dict.get("soil_grids_features", None),  # shape: (9,) or None
 
-            "target": target if not self.use_for_training_adaptive_k else torch.Tensor([torch.sum(target)]),
+            "target": target,
+            "k": torch.Tensor([torch.sum(target)]),
             "survey_id": survey_id,
         }
+
         instance_data = self.preprocess_data(instance_data)
 
         return instance_data

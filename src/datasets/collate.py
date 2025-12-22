@@ -52,6 +52,8 @@ def collate_fn(dataset_items: list[dict], mixup_alpha: float = 1.0, mixup_prob: 
         ("land_cover_features", (13,)),
         ("soil_grids_features", (9,)),
     ]:
+        if name not in batch:
+            continue
         batch[name] = torch.stack([
             item[name] if item[name] is not None
             else torch.full(shape, float('nan'))
@@ -60,7 +62,11 @@ def collate_fn(dataset_items: list[dict], mixup_alpha: float = 1.0, mixup_prob: 
         batch[name] = batch[name].nan_to_num(0.0) # FIXME: better handling of missing data
         batch[name][(batch[name] == float('-inf')) | (batch[name] == float('inf'))] = 0.0 # FIXME: better handling of missing data
 
-    batch["satellite"] = batch["satellite"] / 255.0
+    if "satellite" in batch:
+        batch["satellite"] = batch["satellite"] / 255.0
+
+    if "k" in batch:
+        batch["k"] = torch.stack([item["k"] for item in dataset_items]).to(torch.float32)
 
     if dataset_items[0]["target"] is not None:
         batch["target"] = torch.stack([item["target"] for item in dataset_items])
@@ -71,11 +77,11 @@ def collate_fn(dataset_items: list[dict], mixup_alpha: float = 1.0, mixup_prob: 
     if mixup_alpha > 0.0 and torch.rand(1).item() < mixup_prob:
         lam = torch.distributions.Beta(mixup_alpha, mixup_alpha).sample().item()
 
-        batch_size = batch["satellite"].size(0)
+        batch_size = batch["target"].size(0)
         index = torch.randperm(batch_size)
 
         for key in ["satellite", "bioclimatic", "landsat", "table_data", "target"]:
-            if key != "target" or dataset_items[0]["target"] is not None:
+            if key in batch and (key != "target" or dataset_items[0]["target"] is not None):
                 batch[key] = lam * batch[key] + (1 - lam) * batch[key][index]
 
     return batch
