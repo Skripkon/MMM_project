@@ -8,9 +8,9 @@ import torch
 
 import kagglehub
 
-from src.datasets.base_dataset import BaseDataset
+from tqdm.auto import tqdm
 
-import torch
+from src.datasets.base_dataset import BaseDataset
 
 
 def torch_interp(x, xp, fp):
@@ -88,8 +88,6 @@ class GeoPlantDataset(BaseDataset):
             self.bioclimatic_path = self.index_path / Path("BioclimTimeSeries/cubes") / Path(f"PA-{split}")
             self.landsat_path = self.index_path / Path("SateliteTimeSeries-Landsat/cubes") / Path(f"PA-{split}")
 
-        self.environmental_path = self.index_path / Path("EnvironmentalVariables")
-
         def indexes_to_tensor(indexes_list, num_classes):
             indexes_list = [int(idx)-1 for idx in indexes_list]
             tensor = torch.zeros(num_classes, dtype=torch.float32)
@@ -127,7 +125,7 @@ class GeoPlantDataset(BaseDataset):
         if split != "test":
             df['speciesId'] = df['speciesId'].apply(lambda x: indexes_to_tensor(x, num_classes))
 
-        self.environmental_path = self.index_path / Path("EnvironmentalVariables")
+        self.environmental_path = self.index_path / Path("EnvironmentalValues")
         self.climate_average, self.elevation, self.human_footprint, self.land_cover, self.soil_grids = None, None, None, None, None
         if load_environmental:
             feature_path_map = {
@@ -137,7 +135,7 @@ class GeoPlantDataset(BaseDataset):
                 "land_cover": Path("LandCover") / Path(f"GLC25-{section}-{split}-landcover.csv"),
                 "soil_grids": Path("SoilGrids") / Path(f"GLC25-{section}-{split}-soilgrids.csv")
             }
-            for feature in ["climate", "elevation", "human_footprint", "land_cover", "soil_grids"]:
+            for feature in tqdm(["climate", "elevation", "human_footprint", "land_cover", "soil_grids"]):
                 features = pd.read_csv(self.environmental_path / feature_path_map[feature]).dropna()
 
                 # Normalize environmental columns
@@ -155,8 +153,8 @@ class GeoPlantDataset(BaseDataset):
         df["lon"] = df["lon"] * 111700 * (1 - df["lat"] / 90)
         df["lat"] = df["lat"] * 111700
 
-        for feature in ["lon", "lat", "year", "geoUncertaintyInM", "areaInM2"]:
-            df[feature] = normalize(df[feature])
+        # for feature in ["lon", "lat", "year", "geoUncertaintyInM", "areaInM2"]:
+        #     df[feature] = normalize(df[feature])
 
         self.index = df.to_dict(orient='records')
         self.limit = limit if limit is not None else len(self.index)
@@ -206,11 +204,11 @@ class GeoPlantDataset(BaseDataset):
                 # data_dict["country"], # FIXME: categorical
             ], dtype=torch.float32),
 
-            "climate_features": data_dict.get("climate_features", None),  # shape: (19,) or None
-            "elevation_features": data_dict.get("elevation_features", None),  # shape: (1,) or None
-            "human_footprint_features": data_dict.get("human_footprint_features", None),  # shape: (22,) or None
-            "land_cover_features": data_dict.get("land_cover_features", None),  # shape: (13,) or None
-            "soil_grids_features": data_dict.get("soil_grids_features", None),  # shape: (9,) or None
+            "climate_features": data_dict["bioclimatic_features"],  # shape: (19,)
+            "elevation_features": data_dict["elevation_features"],  # shape: (1,)
+            "human_footprint_features": data_dict["human_footprint_features"],  # shape: (22,)
+            "land_cover_features": data_dict["land_cover_features"],  # shape: (13,)
+            "soil_grids_features": data_dict["soil_grids_features"],  # shape: (9,)
 
             "target": target,
             "k": torch.Tensor([torch.sum(target)]),

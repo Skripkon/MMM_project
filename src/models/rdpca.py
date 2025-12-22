@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from src.models.parts import ResnetBlock, DualPath, MLP
+from src.models.backbones.parts import ResnetBlock, DualPath, MLP
 
 
 class TransformerBlock(nn.Module):

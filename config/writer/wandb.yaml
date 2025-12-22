@@ -1,5 +1,5 @@
 _target_: src.logger.WandBWriter
-project_name: "vit_sprase_training"
+project_name: "multi_modal_contest"
 entity: null
 run_name: "testing"
 mode: "online"

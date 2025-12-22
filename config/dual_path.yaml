@@ -1,5 +1,5 @@
 defaults:
-  - model: resnet_dual_path
+  - model: time_fusion
   - writer: wandb
   - metrics: stable
   - datasets: geoplant
@@ -18,15 +18,15 @@ optimizer:
 
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.OneCycleLR
-  max_lr: 1e-3
+  max_lr: 2e-4
   steps_per_epoch: ${trainer.epoch_len}
   epochs: ${trainer.n_epochs}
 
 loss_function:
-  _target_: src.loss.HuberLossWrapper
-  # gamma_neg: 4
-  # gamma_pos: 1
-  # clip: 0.05
+  _target_: src.loss.AsymmetricLossWrapper
+  gamma_neg: 4
+  gamma_pos: 1
+  clip: 0.05
 
 trainer:
   log_step: 50
@@ -34,12 +34,12 @@ trainer:
   epoch_len: 500
   max_grad_norm: 1.0
   accum_steps: 1
-  device_tensors: ["satellite", "bioclimatic", "landsat", "table_data", "climate_features", "elevation_features", "human_footprint_features", "land_cover_features", "soil_grids_features", "target"]
+  device_tensors: ["bioclimatic", "landsat", "target"]
   resume_from: null
   device: auto
   override: True
-  monitor: "max val_F1"
+  monitor: "max val_Jaccard"
   save_period: -1
   early_stop: ${trainer.n_epochs}
-  save_dir: "saved/mmm"
+  save_dir: "saved/time_fusion"
   seed: 1

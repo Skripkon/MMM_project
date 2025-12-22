@@ -1,6 +1,6 @@
 from torch import nn
 
-from backbones.parts.mlp import MLP
+from src.models.backbones.parts.mlp import MLP
 
 
 class MLPBaselineModel(nn.Module):

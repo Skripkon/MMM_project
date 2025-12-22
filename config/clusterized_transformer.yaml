@@ -1,8 +1,8 @@
 defaults:
-  - model: resnet_dual_path
+  - model: tabular_transformer
   - writer: wandb
   - metrics: stable
-  - datasets: geoplant
+  - datasets: geoplant_clusterized
   - dataloader: stable
   - transforms: stable
   - _self_
@@ -18,28 +18,28 @@ optimizer:
 
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.OneCycleLR
-  max_lr: 1e-3
+  max_lr: 2e-4
   steps_per_epoch: ${trainer.epoch_len}
   epochs: ${trainer.n_epochs}
 
 loss_function:
-  _target_: src.loss.HuberLossWrapper
-  # gamma_neg: 4
-  # gamma_pos: 1
-  # clip: 0.05
+  _target_: src.loss.AsymmetricLossWrapper
+  gamma_neg: 4
+  gamma_pos: 1
+  clip: 0.05
 
 trainer:
-  log_step: 50
-  n_epochs: 1
-  epoch_len: 500
-  max_grad_norm: 1.0
+  log_step: 200
+  n_epochs: 30
+  epoch_len: 2000
+  max_grad_norm: 2.0
   accum_steps: 1
-  device_tensors: ["satellite", "bioclimatic", "landsat", "table_data", "climate_features", "elevation_features", "human_footprint_features", "land_cover_features", "soil_grids_features", "target"]
+  device_tensors: ["climate_features", "elevation_features", "human_footprint_features", "land_cover_features", "soil_grids_features", "target"]
   resume_from: null
   device: auto
   override: True
-  monitor: "max val_F1"
-  save_period: -1
+  monitor: "max val_Jaccard"
+  save_period: 100000000
   early_stop: ${trainer.n_epochs}
-  save_dir: "saved/mmm"
+  save_dir: "saved/tabular_transformer"
   seed: 1

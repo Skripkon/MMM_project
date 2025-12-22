@@ -2,7 +2,7 @@ from typing import List, Literal
 
 import torch.nn as nn
 
-from parts.resnet_block import ResnetBlock
+from src.models.backbones.parts.resnet_block import ResnetBlock
 
 
 class ResNet(nn.Module):

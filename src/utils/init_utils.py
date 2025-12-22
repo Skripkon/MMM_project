@@ -135,7 +135,7 @@ def saving_init(save_dir, config):
 
     OmegaConf.save(config, save_dir / "config.yaml")
 
-    log_git_commit_and_patch(save_dir)
+    # log_git_commit_and_patch(save_dir)
 
 
 def setup_saving_and_logging(config):

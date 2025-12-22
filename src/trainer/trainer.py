@@ -77,28 +77,6 @@ class Trainer(BaseTrainer):
             self.log_predictions(**batch)
 
     def log_predictions(
-        self, logits, target, satellite, bioclimatic, landsat, table_data, survey_id, examples_to_log=10, **batch
+        self, examples_to_log=10, **batch
     ):
-        # TODO: log something to wandb
-        
-        # preds = logits.argmax(dim=-1).cpu().numpy()
-
-        # self.writer.add_scalars({
-        #     "top_1_acc": calc_top_acc(target, logits, top_k=1),
-        #     "top_5_acc": calc_top_acc(target, logits, top_k=5),
-        # })
-
-        # image_paths = [Path(img_path).name if image_path is not None else str(i) for i, img_path in enumerate(image_path)]
-
-        # rows = {
-        #     img_path: {
-        #         "target": trg.item(),
-        #         "predictions": pred,
-        #     }
-        #     for pred, trg, img_path in list(zip(preds, target, image_paths))[:examples_to_log]
-        # }
-        # self.writer.add_table(
-        #     "predictions", pd.DataFrame.from_dict(rows, orient="index")
-        # )
-
         pass
